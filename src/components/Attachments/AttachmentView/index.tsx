@@ -32,6 +32,18 @@ import AttachmentViewPdf from './AttachmentViewPdf';
 import AttachmentViewVideo from './AttachmentViewVideo';
 import DefaultAttachmentView from './DefaultAttachmentView';
 import HighResolutionInfo from './HighResolutionInfo';
+import { canUseTouchScreen } from '@libs/DeviceCapabilities';
+import MultiGestureCanvas, {DEFAULT_ZOOM_RANGE} from '@components/MultiGestureCanvas';
+import {useSharedValue} from 'react-native-reanimated';
+import type {CanvasSize, ContentSize} from '@components/MultiGestureCanvas/types';
+import {useCallback} from 'react';
+import type {LayoutChangeEvent} from 'react-native';
+import {PixelRatio} from 'react-native';
+
+const cachedIconDimensions = new Map<Function | number, ContentSize | undefined>();
+import type {ImageOnLoadEvent} from '@components/Image/types';
+import Navigation from '@libs/Navigation/Navigation';
+
 
 type AttachmentViewProps = Attachment & {
     /** Whether this view is the active screen  */
@@ -133,6 +145,10 @@ function AttachmentView({
     const isVideo = (typeof source === 'string' && Str.isVideo(source)) || (file?.name && Str.isVideo(file.name));
     const firstRenderRoute = useFirstRenderRoute();
     const isInFocusedModal = firstRenderRoute.isFocused && isFocused === undefined;
+    const handleSwipeDown = useCallback(() => {
+        Navigation.goBack()
+    }, [Navigation]);
+
 
     useEffect(() => {
         if (!isFocused && !isInFocusedModal && !(file && isUsedInAttachmentModal)) {
@@ -160,6 +176,77 @@ function AttachmentView({
             const defaultWorkspaceAvatarColor = StyleUtils.getDefaultWorkspaceAvatarColor(file.name ?? '');
             iconFillColor = defaultWorkspaceAvatarColor.fill;
             additionalStyles = [defaultWorkspaceAvatarColor];
+        }
+
+        if (canUseTouchScreen()) {
+            const isPagerScrollingFallback = useSharedValue(false);
+            const isScrollingEnabledFallback = useSharedValue(false);
+            const StyleUtils = useStyleUtils();
+            // const styles = useThemeStyles();
+            const [canvasSize, setCanvasSize] = useState<CanvasSize>();
+            const isCanvasLoading = canvasSize === undefined;
+            const updateCanvasSize = useCallback(
+                ({
+                    nativeEvent: {
+                        layout: {width, height},
+                    },
+                }: LayoutChangeEvent) => setCanvasSize({width: PixelRatio.roundToNearestPixel(width), height: PixelRatio.roundToNearestPixel(height)}),
+                [],
+            );
+            const [contentSize, setInternalContentSize] = useState<ContentSize | undefined>(() => cachedIconDimensions.get(source));
+            const setContentSize = useCallback(
+                (newDimensions: ContentSize | undefined) => {
+                    setInternalContentSize(newDimensions);
+                    cachedIconDimensions.set(source, newDimensions);
+                },
+                [source],
+            );
+            const updateContentSize = useCallback(
+                ({nativeEvent: {width, height}}: ImageOnLoadEvent) => {
+                    if (contentSize !== undefined) {
+                        return;
+                    }
+
+                    setContentSize({width, height});
+                },
+                [contentSize, setContentSize],
+            );
+            const event: ImageOnLoadEvent = {
+                nativeEvent: {
+                    width: 360,
+                    height: 360,
+                },
+            };
+            updateContentSize(event);
+            return (
+                <View style={[StyleUtils.getFullscreenCenteredContentStyles(), StyleUtils.getOpacityStyle(Number(true))]}
+                    onLayout={updateCanvasSize}
+                >
+                {!isCanvasLoading &&
+                    <MultiGestureCanvas
+                        isActive={true}
+                        canvasSize={canvasSize}
+                        contentSize={contentSize}
+                        zoomRange={DEFAULT_ZOOM_RANGE}
+                        pagerRef={undefined}
+                        isUsedInCarousel={false}
+                        shouldDisableTransformationGestures={isScrollingEnabledFallback}
+                        isPagerScrollEnabled={isPagerScrollingFallback}
+                        onTap={undefined}
+                        onScaleChanged={undefined}
+                        onSwipeDown={handleSwipeDown}
+                    >
+                    <Icon
+                        src={source}
+                        height={variables.defaultAvatarPreviewSize}
+                        width={variables.defaultAvatarPreviewSize}
+                        fill={iconFillColor}
+                        additionalStyles={additionalStyles}
+                    />
+                    </MultiGestureCanvas>
+                }
+                </View>
+            );
         }
 
         return (
