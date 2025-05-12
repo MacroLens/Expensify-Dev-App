@@ -169,6 +169,7 @@ function AttachmentView({
                 width={variables.defaultAvatarPreviewSize}
                 fill={iconFillColor}
                 additionalStyles={additionalStyles}
+                enableMultiGestureCanvas
             />
         );
     }
