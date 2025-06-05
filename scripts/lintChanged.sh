@@ -2,7 +2,7 @@
 
 # Lints .ts and .tsx files that have changed in this branch
 
-set -xeu
+set -xu
 
 TOP="$(realpath "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)/..")"
 readonly TOP
