@@ -16,7 +16,7 @@ fi
 
 # Fetch the commit history to include the merge-base commit
 info "Fetching origin/main"
-git fetch origin main --no-tags
+# git fetch origin main --no-tags
 
 MERGE_BASE_SHA_HASH="$(git merge-base origin/main HEAD)"
 readonly MERGE_BASE_SHA_HASH
